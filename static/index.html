@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI VOICE AGENT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            min-height: calc(100vh - 40px);
+        }
+        
+        .bento-card {
+            background: #111111;
+            border: 3px solid #ff6600;
+            padding: 30px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .bento-card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0px #ff6600;
+        }
+        
+        .bento-card::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, #ff6600, #ff8800, #ff6600);
+            z-index: -1;
+            opacity: 0.3;
+        }
+        
+        .header-card {
+            grid-column: 1 / -1;
+            text-align: center;
+            background: #ff6600;
+            color: #000000;
+            border: 3px solid #000000;
+        }
+        
+        .header-card:hover {
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .title {
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            font-weight: 700;
+            opacity: 0.8;
+        }
+        
+        .record-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 350px;
+            text-align: center;
+        }
+        
+        .record-button {
+            width: 150px;
+            height: 150px;
+            background: #ff6600;
+            border: 4px solid #000000;
+            color: #000000;
+            font-size: 3rem;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .record-button:hover {
+            transform: scale(1.05);
+            background: #ff8800;
+        }
+        
+        .record-button:active {
+            transform: scale(0.95);
+        }
+        
+        .record-button.recording {
+            background: #ff0000;
+            animation: pulse 1s infinite;
+        }
+        
+        .record-button.processing {
+            background: #ffaa00;
+            pointer-events: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .record-status {
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #ff6600;
+            min-height: 30px;
+        }
+        
+        .record-status.recording {
+            color: #ff0000;
+            animation: pulse 1s infinite;
+        }
+        
+        .record-status.processing {
+            color: #ffaa00;
+        }
+        
+        .session-card {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .session-stat {
+            text-align: center;
+            padding: 20px;
+            background: #222222;
+            border: 2px solid #ff6600;
+        }
+        
+        .session-stat-value {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #ff6600;
+            margin-bottom: 5px;
+        }
+        
+        .session-stat-label {
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+        
+        .controls-card {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            background: #222222;
+            border: 2px solid #ff6600;
+        }
+        
+        .toggle-label {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+        
+        .toggle-switch {
+            width: 60px;
+            height: 30px;
+            background: #333333;
+            border: 2px solid #ff6600;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .toggle-switch.active {
+            background: #ff6600;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 22px;
+            height: 22px;
+            background: #ff6600;
+            transition: all 0.2s ease;
+        }
+        
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(26px);
+            background: #000000;
+        }
+        
+        .action-button {
+            background: #ff6600;
+            color: #000000;
+            border: 3px solid #000000;
+            padding: 15px 25px;
+            font-weight: 900;
+            font-size: 1rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        
+        .action-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0px #000000;
+        }
+        
+        .action-button:active {
+            transform: translate(0, 0);
+            box-shadow: none;
+        }
+        
+        .chat-card {
+            min-height: 400px;
+            display: none;
+        }
+        
+        .chat-card.active {
+            display: block;
+        }
+        
+        .chat-message {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 2px solid #ff6600;
+            background: #222222;
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .message-sender {
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: #ff6600;
+            text-transform: uppercase;
+        }
+        
+        .message-time {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+        
+        .message-text {
+            line-height: 1.4;
+            font-size: 1rem;
+        }
+        
+        .confidence-badge {
+            background: #ff6600;
+            color: #000000;
+            padding: 3px 8px;
+            font-size: 0.7rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        
+        .status-card {
+            background: #222222;
+            border: 2px solid #ff6600;
+            padding: 20px;
+            text-align: center;
+            display: none;
+        }
+        
+        .status-card.active {
+            display: block;
+        }
+        
+        .status-card.error {
+            border-color: #ff0000;
+            background: #330000;
+        }
+        
+        .status-card.success {
+            border-color: #00ff00;
+            background: #003300;
+        }
+        
+        .status-card.warning {
+            border-color: #ffaa00;
+            background: #332200;
+        }
+        
+        .error-badges {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .error-badge {
+            background: #ff0000;
+            color: #ffffff;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            border: 2px solid #ffffff;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .session-card {
+                grid-template-columns: 1fr;
+            }
+            
+            .record-button {
+                width: 120px;
+                height: 120px;
+                font-size: 2.5rem;
+            }
+        }
+        
+        /* Brutalism animations */
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        
+        .header-card:hover .title {
+            animation: glitch 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="bento-card header-card">
+            <h1 class="title">🎙️ AI VOICE AGENT</h1>
+            <p class="subtitle">SPEAK. LISTEN. CONVERSE.</p>
+        </div>
+
+        <!-- Record Button -->
+        <div class="bento-card record-card">
+            <button class="record-button" id="mainRecordButton" onclick="toggleRecording()">
+                <span id="recordIcon">🎙️</span>
+            </button>
+            <div class="record-status" id="recordStatus">
+                TAP TO START
+            </div>
+        </div>
+
+        <!-- Session Stats -->
+        <div class="bento-card session-card">
+            <div class="session-stat">
+                <div class="session-stat-value" id="sessionIdDisplay">NEW</div>
+                <div class="session-stat-label">SESSION</div>
+            </div>
+            <div class="session-stat">
+                <div class="session-stat-value" id="messageCount">0</div>
+                <div class="session-stat-label">MESSAGES</div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="bento-card controls-card">
+            <div class="toggle-container">
+                <span class="toggle-label">AUTO-RECORD</span>
+                <div class="toggle-switch" id="autoRecordToggle" onclick="toggleAutoRecord()">
+                    <div class="toggle-slider"></div>
+                </div>
+            </div>
+            
+            <button class="action-button" onclick="startNewConversation()">
+                🆕 NEW CHAT
+            </button>
+        </div>
+
+        <!-- Status Messages -->
+        <div class="bento-card status-card" id="statusCard">
+            <div class="error-badges" id="errorBadges"></div>
+            <div id="statusMessage"></div>
+        </div>
+
+        <!-- Chat Display -->
+        <div class="bento-card chat-card" id="chatCard">
+            <div id="chatContent"></div>
+            
+            <div id="actionButtons" style="margin-top: 20px; display: none;">
+                <button class="action-button" id="playButton" style="margin-right: 10px;">
+                    🔊 PLAY
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Audio Player -->
+    <audio id="chatResponseAudio" style="display: none;"></audio>
+
+    <script src="static/script.js?v=brutalism-bento"></script>
+</body>
+</html>
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-lg);
+            padding: 40px;
+            animation: fadeInUp 0.8s ease-out;
+            position: relative;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes recordingPulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+            }
+        }
+        
+        @keyframes ripple {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .title {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: -0.025em;
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            font-weight: 400;
+        }
+        
+        .main-chat-container {
+            background: linear-gradient(145deg, #ffffff, #f8fafc);
+            border-radius: var(--border-radius);
+            padding: 40px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+            border: 1px solid rgba(255,255,255,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .main-chat-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+        
+        .chat-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .chat-title {
+            color: var(--text-primary);
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        .chat-description {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .record-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 40px 0;
+            position: relative;
+        }
+        
+        .record-button {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .record-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .record-button:active {
+            transform: scale(0.95);
+        }
+        
+        .record-button.recording {
+            background: linear-gradient(135deg, var(--error-color), #dc2626);
+            animation: recordingPulse 2s infinite;
+        }
+        
+        .record-button.processing {
+            background: linear-gradient(135deg, var(--warning-color), #d97706);
+            pointer-events: none;
+        }
+        
+        .record-button .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            animation: ripple 0.6s linear;
+        }
+        
+        .record-status {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            min-height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .record-status.recording {
+            color: var(--error-color);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .record-status.processing {
+            color: var(--warning-color);
+        }
+        
+        .record-status.success {
+            color: var(--success-color);
+        }
+        
+        .session-info {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 30px 0;
+            border-left: 4px solid var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .session-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .session-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .session-stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .chat-result {
+            display: none;
+            margin-top: 30px;
+            animation: fadeInUp 0.5s ease-out;
+        }
+        
+        .chat-exchange {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .chat-message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+        
+        .chat-message:last-child {
+            margin-bottom: 0;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        .message-avatar.user {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            color: #1d4ed8;
+        }
+        
+        .message-avatar.assistant {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #047857;
+        }
+        
+        .message-content {
+            flex: 1;
+        }
+        
+        .message-text {
+            background: #f8fafc;
+            padding: 15px 20px;
+            border-radius: 18px 18px 18px 4px;
+            color: var(--text-primary);
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        
+        .message-avatar.user + .message-content .message-text {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border-radius: 18px 18px 4px 18px;
+        }
+        
+        .message-meta {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .confidence-badge {
+            background: #f0f9ff;
+            color: #0369a1;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .action-button {
+            background: linear-gradient(135deg, var(--success-color), #059669);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+        
+        .error-indicators {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .error-badge {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #fecaca;
+        }
+        
+        .status-message {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            font-weight: 500;
+            text-align: center;
+            transition: var(--transition);
+        }
+        
+        .status-message.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #dbeafe;
+        }
+        
+        .status-message.success {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .status-message.warning {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid #fed7aa;
+        }
+        
+        .status-message.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .chat-history {
+            margin-top: 30px;
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 16px;
+            background: white;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+        }
+        
+        .history-header {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            padding: 20px;
+            border-radius: 16px 16px 0 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .history-content {
+            padding: 20px;
+        }
+        
+        .history-message {
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .history-message:last-child {
+            border-bottom: none;
+        }
+        
+        /* Auto-record toggle */
+        .auto-record-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #d1d5db;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .toggle-switch.active {
+            background: var(--primary-color);
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: var(--transition);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(26px);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            
+            .title {
+                font-size: 2.5rem;
+            }
+            
+            .record-button {
+                width: 100px;
+                height: 100px;
+                font-size: 2rem;
+            }
+            
+            .session-info {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+        
+        /* Hidden elements */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🎙️ AI Voice Agent</h1>
+            <p class="subtitle">Day 12: Revamped UI - Speak naturally, chat intelligently</p>
+        </div>
+
+        <div class="main-chat-container">
+            <div class="chat-header">
+                <h2 class="chat-title">
+                    <span>🤖</span>
+                    Conversational AI Agent
+                </h2>
+                <p class="chat-description">
+                    Click the record button and start speaking. The AI will remember our conversation and respond naturally with voice and text.
+                </p>
+            </div>
+
+            <!-- Session Information -->
+            <div class="session-info">
+                <div class="session-stat">
+                    <div class="session-stat-value" id="sessionIdDisplay">New Session</div>
+                    <div class="session-stat-label">Session ID</div>
+                </div>
+                <div class="session-stat">
+                    <div class="session-stat-value" id="messageCount">0</div>
+                    <div class="session-stat-label">Messages</div>
+                </div>
+                <div class="session-stat">
+                    <div class="session-stat-value" id="conversationTime">0:00</div>
+                    <div class="session-stat-label">Duration</div>
+                </div>
+            </div>
+
+            <!-- Auto-record Toggle -->
+            <div class="auto-record-toggle">
+                <span>Auto-record after AI response:</span>
+                <div class="toggle-switch" id="autoRecordToggle" onclick="toggleAutoRecord()">
+                    <div class="toggle-slider"></div>
+                </div>
+            </div>
+
+            <!-- Main Record Section -->
+            <div class="record-section">
+                <button class="record-button" id="mainRecordButton" onclick="toggleRecording()">
+                    <span id="recordIcon">🎙️</span>
+                </button>
+                <div class="record-status" id="recordStatus">
+                    Tap to start conversation
+                </div>
+            </div>
+
+            <!-- Status Messages -->
+            <div id="chatStatus" class="status-message hidden"></div>
+
+            <!-- Chat Result -->
+            <div id="chatResult" class="chat-result"></div>
+
+            <!-- Hidden Audio Player -->
+            <audio id="chatResponseAudio" style="display: none;" controls></audio>
+
+            <!-- Chat History -->
+            <div id="chatHistoryContainer" class="chat-history hidden">
+                <div class="history-header">
+                    <span>📜</span>
+                    Conversation History
+                </div>
+                <div class="history-content" id="chatHistory"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/script.js?v=day12-fixed"></script>
+</body>
+</html>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            padding: 40px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h1 {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 10px;
+            animation: slideInDown 0.6s ease-out;
+        }
+        
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            animation: fadeIn 1s ease-out 0.3s both;
+        }
+        
+        .section {
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            margin-bottom: 30px;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 
+                0 8px 32px rgba(0,0,0,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        .section h1, .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 1.05rem;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255,255,255,0.8);
+        }
+        
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        button:hover::before {
+            left: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: linear-gradient(135deg, #9ca3af, #6b7280);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 2px 8px rgba(156, 163, 175, 0.3);
+        }
+        
+        .recording {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .test-tts-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #e0f2fe, #b3e5fc);
+            border-radius: 10px;
+            border-left: 4px solid #0288d1;
+        }
+        
+        .test-tts-section button {
+            background: linear-gradient(135deg, #0288d1, #0277bd);
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+        
+        .status {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            animation: slideInRight 0.4s ease-out;
+            border-left: 4px solid;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .success {
+            background: linear-gradient(135deg, #d4f5e9, #a7f3d0);
+            color: #065f46;
+            border-left-color: #10b981;
+        }
+        
+        .error {
+            background: linear-gradient(135deg, #fee2e2, #fca5a5);
+            color: #7f1d1d;
+            border-left-color: #ef4444;
+        }
+        
+        .info {
+            background: linear-gradient(135deg, #dbeafe, #93c5fd);
+            color: #1e3a8a;
+            border-left-color: #3b82f6;
+        }
+        
+        audio {
+            width: 100%;
+            margin: 15px 0;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .transcription-result {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #0ea5e9;
+            margin: 15px 0;
+            animation: fadeInUp 0.5s ease-out;
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.1);
+        }
+        
+        .ai-response-button {
+            background: linear-gradient(135deg, #10b981, #059669) !important;
+            padding: 15px 30px !important;
+            font-size: 16px !important;
+            border-radius: 12px !important;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important;
+            margin: 10px 0 !important;
+        }
+        
+        .ai-response-button:hover {
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4) !important;
+        }
+        
+        /* Error handling styles */
+        .ai-response-button.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3) !important;
+        }
+        
+        .ai-response-button.error:hover {
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4) !important;
+        }
+        
+        .ai-response-button.retry {
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important;
+        }
+        
+        .ai-response-button.retry:hover {
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4) !important;
+        }
+        
+        .error-badge {
+            display: inline-block;
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 2px;
+            border: 1px solid #fecaca;
+        }
+        
+        .error-indicators {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .chat-message.error {
+            background: linear-gradient(135deg, #fee2e2, #fecaca) !important;
+            border-left: 4px solid #dc2626 !important;
+        }
+        
+        .error-details {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .error-details summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .error-details p {
+            margin-top: 8px;
+            color: #6b7280;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .confidence {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        /* Error simulation and testing styles */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .grid-item {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        
+        .grid-item h3 {
+            margin-bottom: 15px;
+            color: #374151;
+            font-size: 1.2rem;
+        }
+        
+        .button.error {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            margin: 5px;
+        }
+        
+        .button.success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            margin: 5px;
+        }
+        
+        .button.info {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            margin: 5px;
+        }
+        
+        .help-text {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 10px;
+            font-style: italic;
+        }
+        
+        .api-status-panel {
+            background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px solid #d1d5db;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid transparent;
+        }
+        
+        .status-dot.online {
+            background: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+        }
+        
+        .status-dot.offline {
+            background: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+        }
+        
+        .status-dot.unknown {
+            background: #f59e0b;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+        }
+        
+        .testing-instructions {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .testing-instructions h3 {
+            color: #1e40af;
+            margin-bottom: 15px;
+        }
+        
+        .testing-instructions ol {
+            text-align: left;
+            color: #374151;
+        }
+        
+        .testing-instructions li {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        
+        .debug-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+        
+        .chat-history {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        }
+        
+        .chat-message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            animation: fadeInUp 0.3s ease-out;
+        }
+        
+        .chat-message.user {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            border-left: 4px solid #3b82f6;
+            margin-left: 20px;
+        }
+        
+        .chat-message.assistant {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            border-left: 4px solid #10b981;
+            margin-right: 20px;
+        }
+        
+        .chat-message .role {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .chat-message.user .role {
+            color: #1e40af;
+        }
+        
+        .chat-message.assistant .role {
+            color: #047857;
+        }
+        
+        .chat-message .content {
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .chat-message .timestamp {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        
+        .session-info {
+            font-size: 14px;
+        }
+        
+        .auto-record-active {
+            background: linear-gradient(135deg, #10b981, #059669) !important;
+        }
+        
+        .realtime-chat {
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+            min-height: 200px;
+        }
+        
+        .user-message, .ai-message {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 10px;
+            animation: slideInUp 0.4s ease-out;
+        }
+        
+        .user-message {
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            border-left: 4px solid #3b82f6;
+            margin-left: 20px;
+        }
+        
+        .ai-message {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            border-left: 4px solid #10b981;
+            margin-right: 20px;
+        }
+        
+        .ai-thinking {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 15px 20px 15px 0;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-radius: 10px;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            margin-right: 10px;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background: #f59e0b;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .thinking-text {
+            font-weight: 600;
+            color: #92400e;
+        }
+        
+        .streaming-text {
+            font-family: 'Courier New', monospace;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            animation: highlight 0.3s ease-out;
+        }
+        
+        @keyframes highlight {
+            0% { background: rgba(16, 185, 129, 0.3); }
+            100% { background: rgba(16, 185, 129, 0.1); }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .section {
+                padding: 20px;
+            }
+            
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            
+            .chat-message {
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 30 Days of Voice Agents Challenge</h1>
+        <p class="subtitle">Building the future of voice-powered AI interactions</p>
+        
+        <!-- Day 2-3: Text to Speech Section -->
+        <div class="section">
+            <h2><span class="icon">🗣️</span>Text to Speech Generator</h2>
+            <p>Transform any text into natural-sounding speech using advanced AI voices</p>
+            <textarea id="ttsText" placeholder="Enter your text here and watch it come to life..." rows="3"></textarea>
+            <button onclick="generateSpeech()">
+                <span class="icon">🎵</span>Generate Speech
+            </button>
+            <div id="ttsStatus"></div>
+            <audio id="ttsAudio" controls style="display: none;"></audio>
+            <div id="ttsTranscript" class="transcription-result" style="display: none;"></div>
+        </div>
+
+        <!-- Echo Bot v2 Section -->
+        <div class="section">
+            <h2><span class="icon">🔄</span>Echo Bot v2 - Voice Mirror</h2>
+            <p>Speak into your microphone and hear your words transformed with AI-powered transcription and voice synthesis</p>
+            <button id="startRecord" onclick="startRecording()">
+                <span class="icon">🎙️</span>Start Recording
+            </button>
+            <button id="stopRecord" onclick="stopRecording()" disabled>
+                <span class="icon">⏹️</span>Stop Recording
+            </button>
+            <div id="recordStatus"></div>
+            <audio id="recordedAudio" controls style="display: none;"></audio>
+            <div id="uploadStatus"></div>
+            <div id="transcriptionResult" class="transcription-result" style="display: none;"></div>
+        </div>
+
+        <!-- LLM Voice Bot Section -->
+        <div class="section">
+            <h2><span class="icon">🤖</span>LLM Voice Bot - AI Conversation</h2>
+            <p>Have natural conversations with AI! Record your question and get intelligent responses powered by Google Gemini</p>
+            
+            <button id="startLLMRecord" onclick="startLLMRecording()">
+                <span class="icon">🎙️</span>Start Recording Question
+            </button>
+            <button id="stopLLMRecord" onclick="stopLLMRecording()" disabled>
+                <span class="icon">⏹️</span>Stop Recording
+            </button>
+            <div id="llmRecordStatus"></div>
+            <audio id="llmRecordedAudio" controls style="display: none;"></audio>
+            <div id="llmStatus"></div>
+            <audio id="llmResponseAudio" controls style="display: none;"></audio>
+            <div id="llmResult" class="transcription-result" style="display: none;"></div>
+        </div>
+
+        <!-- Day 9: Conversational Agent Section -->
+        <div class="section">
+            <h2><span class="icon">�</span>Conversational AI Agent - Chat Memory</h2>
+            <p>Have natural flowing conversations! The AI remembers your previous messages and maintains context throughout your chat.</p>
+            
+            <!-- Session Info -->
+            <div class="session-info" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #f8fafc, #e2e8f0); border-radius: 10px; border-left: 4px solid #3b82f6;">
+                <p><strong>Session ID:</strong> <span id="sessionId">Loading...</span></p>
+                <p><strong>Messages in conversation:</strong> <span id="messageCount">0</span></p>
+                <button onclick="clearChatHistory()" style="background: linear-gradient(135deg, #ef4444, #dc2626); font-size: 14px; padding: 8px 16px;">
+                    <span class="icon">🗑️</span>Clear Chat History
+                </button>
+            </div>
+            
+            <!-- Auto-record status -->
+            <div id="autoRecordInfo" class="info" style="display: none;">
+                <strong>Auto-recording enabled!</strong> I'll start listening automatically after I finish speaking.
+            </div>
+            
+            <button id="startChatRecord" onclick="startChatRecording()">
+                <span class="icon">🎙️</span>Start Conversation
+            </button>
+            <button id="stopChatRecord" onclick="stopChatRecording()" disabled>
+                <span class="icon">⏹️</span>Stop Recording
+            </button>
+            <button id="toggleAutoRecord" onclick="toggleAutoRecord()" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                <span class="icon">🔄</span>Enable Auto-Record
+            </button>
+            
+            <div id="chatRecordStatus"></div>
+            <audio id="chatRecordedAudio" controls style="display: none;"></audio>
+            <div id="chatStatus"></div>
+            <audio id="chatResponseAudio" controls style="display: none;"></audio>
+            
+            <!-- Chat History Display -->
+            <div id="chatHistory" class="chat-history" style="display: none;"></div>
+            <div id="chatResult" class="transcription-result" style="display: none;"></div>
+        </div>
+
+        <!-- Real-Time Streaming Chat Section -->
+        <div class="section">
+            <h2><span class="icon">⚡</span>Real-Time Streaming AI Chat</h2>
+            <p>Experience lightning-fast conversations with real-time streaming responses! Watch the AI think and respond in real-time.</p>
+            
+            <!-- Real-time Session Info -->
+            <div class="session-info" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius: 10px; border-left: 4px solid #10b981;">
+                <p><strong>Streaming Session:</strong> <span id="streamSessionId">Loading...</span></p>
+                <p><strong>Status:</strong> <span id="streamStatus">Ready</span></p>
+                <button onclick="clearStreamChat()" style="background: linear-gradient(135deg, #ef4444, #dc2626); font-size: 14px; padding: 8px 16px;">
+                    <span class="icon">🗑️</span>Clear Stream History
+                </button>
+            </div>
+            
+            <button id="startStreamRecord" onclick="startStreamRecording()">
+                <span class="icon">🎙️</span>Start Real-Time Chat
+            </button>
+            <button id="stopStreamRecord" onclick="stopStreamRecording()" disabled>
+                <span class="icon">⏹️</span>Stop Recording
+            </button>
+            <button id="toggleStreamAuto" onclick="toggleStreamAutoRecord()" style="background: linear-gradient(135deg, #10b981, #059669);">
+                <span class="icon">⚡</span>Enable Auto-Stream
+            </button>
+            
+            <div id="streamRecordStatus"></div>
+            <audio id="streamRecordedAudio" controls style="display: none;"></audio>
+            
+            <!-- Real-time conversation display -->
+            <div id="realtimeConversation" class="realtime-chat" style="display: none;">
+                <div id="userTranscription" class="user-message" style="display: none;"></div>
+                <div id="aiThinking" class="ai-thinking" style="display: none;">
+                    <div class="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <span class="thinking-text">AI is thinking...</span>
+                </div>
+                <div id="aiResponse" class="ai-message" style="display: none;"></div>
+            </div>
+            
+            <audio id="streamResponseAudio" controls style="display: none;"></audio>
+            <div id="streamChatHistory" class="chat-history" style="display: none;"></div>
+        </div>
+        
+        <!-- Error Simulation Testing Section -->
+        <div class="section">
+            <h2><span class="icon">🔧</span>Error Simulation & Testing</h2>
+            <p>Test how the voice agent handles various API failures and connection issues. This simulates real-world scenarios where services might be unavailable.</p>
+            
+            <div class="grid-container">
+                <div class="grid-item">
+                    <h3>🎙️ Speech Recognition (STT) Tests</h3>
+                    <button onclick="simulateError('stt', 'disable')" class="button error">Disable STT API</button>
+                    <button onclick="simulateError('stt', 'enable')" class="button success">Enable STT API</button>
+                    <p class="help-text">Test fallback responses when speech recognition fails</p>
+                </div>
+                
+                <div class="grid-item">
+                    <h3>🤖 AI Brain (LLM) Tests</h3>
+                    <button onclick="simulateError('llm', 'disable')" class="button error">Disable LLM API</button>
+                    <button onclick="simulateError('llm', 'enable')" class="button success">Enable LLM API</button>
+                    <p class="help-text">Test contextual fallback responses when AI is unavailable</p>
+                </div>
+                
+                <div class="grid-item">
+                    <h3>🔊 Voice Synthesis (TTS) Tests</h3>
+                    <button onclick="simulateError('tts', 'disable')" class="button error">Disable TTS API</button>
+                    <button onclick="simulateError('tts', 'enable')" class="button success">Enable TTS API</button>
+                    <p class="help-text">Test browser speech synthesis fallback</p>
+                </div>
+                
+                <div class="grid-item">
+                    <h3>💥 Complete System Failure</h3>
+                    <button onclick="simulateError('all', 'disable')" class="button error">Disable All APIs</button>
+                    <button onclick="simulateError('all', 'enable')" class="button success">Enable All APIs</button>
+                    <p class="help-text">Test complete graceful degradation</p>
+                </div>
+            </div>
+            
+            <div id="errorSimulationStatus" class="status" style="display: none;"></div>
+            
+            <div class="api-status-panel">
+                <h3>📊 Current API Status</h3>
+                <div id="apiStatusDisplay">
+                    <div class="status-indicator">
+                        <span class="status-dot" id="sttStatus"></span>
+                        <span>Speech Recognition (STT)</span>
+                    </div>
+                    <div class="status-indicator">
+                        <span class="status-dot" id="llmStatus"></span>
+                        <span>AI Brain (LLM)</span>
+                    </div>
+                    <div class="status-indicator">
+                        <span class="status-dot" id="ttsStatus"></span>
+                        <span>Voice Synthesis (TTS)</span>
+                    </div>
+                </div>
+                <button onclick="checkApiStatus()" class="button info">Refresh Status</button>
+            </div>
+            
+            <div class="testing-instructions">
+                <h3>📋 Testing Instructions</h3>
+                <ol>
+                    <li><strong>Disable an API:</strong> Click the red "Disable" button for any service</li>
+                    <li><strong>Test the Agent:</strong> Try using the voice chat with that API disabled</li>
+                    <li><strong>Observe Fallbacks:</strong> Notice how the system gracefully handles the failure</li>
+                    <li><strong>Re-enable:</strong> Click the green "Enable" button to restore functionality</li>
+                    <li><strong>Production Scenario:</strong> This simulates real network outages or API failures</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/script.js"></script>
+</body>
+</html>
