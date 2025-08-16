@@ -437,7 +437,76 @@ async def health_check():
     }
 
 
+# WebSocket connection manager
+# Import WebSocket classes first
+from fastapi import WebSocket, WebSocketDisconnect
+
+class ConnectionManager:
+    """Manages WebSocket connections for real-time communication"""
+    
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+    
+    async def connect(self, websocket: WebSocket):
+        """Accept and store new WebSocket connection"""
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+    
+    def disconnect(self, websocket: WebSocket):
+        """Remove WebSocket connection"""
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+    
+    async def send_personal_message(self, message: str, websocket):
+        """Send message to specific WebSocket connection"""
+        try:
+            await websocket.send_text(message)
+        except Exception as e:
+            logger.error(f"Error sending WebSocket message: {e}")
+            self.disconnect(websocket)
+
+# Create connection manager instance
+manager = ConnectionManager()
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time communication
+    
+    This endpoint allows clients to:
+    - Send text messages and receive echo responses
+    - Test WebSocket connectivity
+    """
+    await manager.connect(websocket)
+    
+    try:
+        # Send welcome message
+        await manager.send_personal_message(
+            "🎙️ Connected to Voice Agent WebSocket! Send any message and I'll echo it back.", 
+            websocket
+        )
+        
+        while True:
+            # Wait for message from client
+            data = await websocket.receive_text()
+            logger.info(f"WebSocket received: {data}")
+            
+            # Echo the message back
+            response = f"Echo: {data}"
+            await manager.send_personal_message(response, websocket)
+                    
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        logger.info("WebSocket client disconnected")
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+        manager.disconnect(websocket)
+
+
 if __name__ == "__main__":
     import uvicorn
-    logger.info(f"Starting Voice Agent server on {config.host}:{config.port}")
+    logger.info(f"Starting Voice Agent server with WebSocket support on {config.host}:{config.port}")
     uvicorn.run(app, host=config.host, port=config.port)
