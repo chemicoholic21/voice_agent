@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIXED WebSocket Real-Time Transcription</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #00ff00;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #cccccc;
+            font-size: 1.1rem;
+        }
+        
+        .control-panel {
+            background: #111111;
+            border: 3px solid #00ff00;
+            padding: 30px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+        
+        .button {
+            background: #222222;
+            color: #ffffff;
+            border: 2px solid #00ff00;
+            padding: 12px 20px;
+            margin: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .button:hover:not(:disabled) {
+            background: #00ff00;
+            color: #000000;
+            transform: translateY(-2px);
+        }
+        
+        .button:disabled {
+            background: #333333;
+            color: #666666;
+            border-color: #444444;
+            cursor: not-allowed;
+        }
+        
+        .button.active {
+            background: #ff6600;
+            border-color: #ff6600;
+        }
+        
+        .message-input {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+        
+        .message-input input {
+            flex: 1;
+            padding: 10px;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: rgba(0, 255, 0, 0.2);
+            border-left: 4px solid #00ff00;
+            color: #00ff00;
+        }
+        
+        .status.error {
+            background: rgba(255, 0, 0, 0.2);
+            border-left: 4px solid #ff0000;
+            color: #ff6666;
+        }
+        
+        .status.info {
+            background: rgba(0, 150, 255, 0.2);
+            border-left: 4px solid #0096ff;
+            color: #66ccff;
+        }
+        
+        .message-log {
+            background: #0a0a0a;
+            border: 1px solid #333333;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+        
+        .message {
+            margin-bottom: 8px;
+            padding: 5px;
+        }
+        
+        .message.sent {
+            color: #60a5fa;
+        }
+        
+        .message.received {
+            color: #34d399;
+        }
+        
+        .message.transcription {
+            color: #00ff00;
+            font-weight: bold;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 8px;
+            border-radius: 4px;
+            margin: 8px 0;
+        }
+        
+        .message.system {
+            color: #fbbf24;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #00ff00;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00ff00;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #cccccc;
+            margin-top: 5px;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ FIXED Real-Time Transcription</h1>
+            <p>AssemblyAI Universal Streaming with Proper PCM16 Audio</p>
+        </div>
+        
+        <div class="control-panel">
+            <button id="connectBtn" class="button" onclick="connectWebSocket()">
+                🔌 Connect WebSocket
+            </button>
+            <button id="disconnectBtn" class="button" onclick="disconnectWebSocket()" disabled>
+                ❌ Disconnect
+            </button>
+            
+            <div class="message-input">
+                <input type="text" id="messageInput" placeholder="Commands: start_transcription, stop_transcription">
+                <button class="button" onclick="sendMessage()" disabled id="sendBtn">Send</button>
+            </div>
+            
+            <button id="transcriptionBtn" class="button" onclick="toggleTranscription()" disabled>
+                🎯 Start Live Transcription
+            </button>
+            
+            <button id="recordBtn" class="button" onclick="toggleRecording()" disabled>
+                🎙️ Start Recording
+            </button>
+        </div>
+        
+        <div class="status" id="connectionStatus">
+            Disconnected
+        </div>
+        
+        <!-- Turn-based Transcription Display -->
+        <div class="transcription-section" style="margin: 20px 0;">
+            <h3 style="color: #00ff00; margin-bottom: 15px;">🎯 Turn-Based Transcriptions</h3>
+            
+            <!-- Current Turn Display -->
+            <div id="currentTurnContainer" style="display: none; background: #1a1a2e; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 15px;">
+                <div style="color: #ffc107; font-weight: bold; margin-bottom: 8px;">🔄 Current Turn (Speaking...)</div>
+                <div id="currentTurnText" style="color: #ffffff; font-style: italic;">Listening for speech...</div>
+                <div id="currentTurnDuration" style="color: #cccccc; font-size: 12px; margin-top: 5px;">Duration: 0s</div>
+            </div>
+            
+            <!-- Completed Turns Display -->
+            <div id="completedTurns" style="max-height: 300px; overflow-y: auto;">
+                <div style="color: #666; font-style: italic; text-align: center; padding: 20px;">
+                    Completed turns will appear here...
+                </div>
+            </div>
+            
+            <!-- Turn Statistics -->
+            <div class="turn-stats" style="display: flex; gap: 15px; margin-top: 15px; font-size: 12px;">
+                <div style="background: #1a1a1a; padding: 8px 12px; border-radius: 5px;">
+                    <strong>Total Turns:</strong> <span id="turnCount">0</span>
+                </div>
+                <div style="background: #1a1a1a; padding: 8px 12px; border-radius: 5px;">
+                    <strong>Session Time:</strong> <span id="sessionTime">0s</span>
+                </div>
+                <div style="background: #1a1a1a; padding: 8px 12px; border-radius: 5px;">
+                    <strong>Avg Turn Length:</strong> <span id="avgTurnLength">0s</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="message-log" id="messageLog"></div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div id="audioChunksSent" class="stat-value">0</div>
+                <div class="stat-label">Audio Chunks Sent</div>
+            </div>
+            <div class="stat-card">
+                <div id="transcriptionCount" class="stat-value">0</div>
+                <div class="stat-label">Transcriptions Received</div>
+            </div>
+            <div class="stat-card">
+                <div id="connectionTime" class="stat-value">0s</div>
+                <div class="stat-label">Connection Time</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let mediaRecorder = null;
+        let stream = null;
+        let isRecording = false;
+        let isTranscribing = false;
+        let audioChunksSent = 0;
+        let transcriptionCount = 0;
+        let connectionStartTime = null;
+        let connectionTimer = null;
+        let audioContext = null;
+        let processor = null;
+        
+        // Turn detection variables
+        let totalTurns = 0;
+        let currentTurnStart = null;
+        let sessionStartTime = null;
+        let turnDurations = [];
+        let currentTurnText = "";
+        let turnUpdateInterval = null;
+        
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        function addToLog(message, type = 'system') {
+            const log = document.getElementById('messageLog');
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+            
+            if (type === 'transcription') {
+                transcriptionCount++;
+                updateStats();
+            }
+            
+            messageEl.innerHTML = `<span style="color: #666">[${new Date().toLocaleTimeString()}]</span> ${message}`;
+            log.appendChild(messageEl);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function updateStats() {
+            document.getElementById('audioChunksSent').textContent = audioChunksSent;
+            document.getElementById('transcriptionCount').textContent = transcriptionCount;
+            
+            if (connectionStartTime) {
+                const elapsed = Math.floor((Date.now() - connectionStartTime) / 1000);
+                document.getElementById('connectionTime').textContent = `${elapsed}s`;
+            }
+        }
+        
+        // Turn Detection Functions
+        function handleStructuredMessage(data) {
+            console.log('Received structured message:', data);
+            
+            switch(data.type) {
+                case 'session_started':
+                    handleSessionStarted(data);
+                    break;
+                case 'partial_transcript':
+                    handlePartialTranscript(data);
+                    break;
+                case 'end_of_turn':
+                    handleEndOfTurn(data);
+                    break;
+                default:
+                    addToLog(`📨 ${data.message || JSON.stringify(data)}`, 'received');
+                    break;
+            }
+        }
+        
+        function handleSessionStarted(data) {
+            sessionStartTime = Date.now();
+            addToLog(`🎙️ ${data.message}`, 'system');
+            
+            // Start session timer
+            if (turnUpdateInterval) clearInterval(turnUpdateInterval);
+            turnUpdateInterval = setInterval(updateTurnTimers, 100);
+        }
+        
+        function handlePartialTranscript(data) {
+            if (!currentTurnStart) {
+                // Start of new turn
+                currentTurnStart = Date.now();
+                document.getElementById('currentTurnContainer').style.display = 'block';
+                currentTurnText = "";
+            }
+            
+            currentTurnText = data.transcript;
+            document.getElementById('currentTurnText').textContent = currentTurnText;
+            
+            addToLog(`⏳ Speaking: "${data.transcript}"`, 'transcription');
+        }
+        
+        function handleEndOfTurn(data) {
+            if (currentTurnStart) {
+                const turnDuration = (Date.now() - currentTurnStart) / 1000;
+                turnDurations.push(turnDuration);
+                totalTurns++;
+                
+                // Create completed turn element
+                const completedTurns = document.getElementById('completedTurns');
+                if (completedTurns.children[0]?.textContent.includes('Completed turns will appear here')) {
+                    completedTurns.innerHTML = '';
+                }
+                
+                const turnElement = document.createElement('div');
+                turnElement.style.cssText = `
+                    background: #0d4377;
+                    border-left: 4px solid #28a745;
+                    padding: 15px;
+                    margin: 10px 0;
+                    border-radius: 8px;
+                    animation: slideIn 0.3s ease-out;
+                `;
+                
+                turnElement.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="color: #28a745; font-weight: bold;">🎯 Turn ${totalTurns}</span>
+                        <span style="color: #cccccc; font-size: 12px;">Duration: ${turnDuration.toFixed(1)}s</span>
+                    </div>
+                    <div style="color: #ffffff;">"${data.transcript}"</div>
+                    <div style="color: #999; font-size: 11px; margin-top: 5px;">
+                        ${new Date(data.timestamp).toLocaleTimeString()} 
+                        ${data.confidence ? `• Confidence: ${(data.confidence * 100).toFixed(1)}%` : ''}
+                    </div>
+                `;
+                
+                completedTurns.insertBefore(turnElement, completedTurns.firstChild);
+                
+                // Update statistics
+                updateTurnStats();
+                
+                // Hide current turn display
+                document.getElementById('currentTurnContainer').style.display = 'none';
+                currentTurnStart = null;
+                currentTurnText = "";
+                
+                addToLog(`🎯 Turn completed: "${data.transcript}" (${turnDuration.toFixed(1)}s)`, 'transcription');
+            }
+        }
+        
+        function updateTurnTimers() {
+            // Update session time
+            if (sessionStartTime) {
+                const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000);
+                document.getElementById('sessionTime').textContent = `${sessionDuration}s`;
+            }
+            
+            // Update current turn duration
+            if (currentTurnStart) {
+                const turnDuration = Math.floor((Date.now() - currentTurnStart) / 1000);
+                document.getElementById('currentTurnDuration').textContent = `Duration: ${turnDuration}s`;
+            }
+        }
+        
+        function updateTurnStats() {
+            document.getElementById('turnCount').textContent = totalTurns;
+            
+            if (turnDurations.length > 0) {
+                const avgDuration = turnDurations.reduce((a, b) => a + b, 0) / turnDurations.length;
+                document.getElementById('avgTurnLength').textContent = `${avgDuration.toFixed(1)}s`;
+            }
+        }
+        
+        function connectWebSocket() {
+            try {
+                websocket = new WebSocket('ws://localhost:8001/ws');
+                
+                websocket.onopen = function(event) {
+                    updateStatus('🟢 Connected to WebSocket server', 'success');
+                    addToLog('✅ WebSocket connection established', 'system');
+                    connectionStartTime = Date.now();
+                    
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    document.getElementById('transcriptionBtn').disabled = false;
+                    document.getElementById('recordBtn').disabled = false;
+                    document.getElementById('sendBtn').disabled = false;
+                    
+                    // Start connection timer
+                    connectionTimer = setInterval(updateStats, 1000);
+                };
+                
+                websocket.onmessage = function(event) {
+                    const message = event.data;
+                    
+                    // Try to parse as JSON for structured turn detection messages
+                    try {
+                        const data = JSON.parse(message);
+                        handleStructuredMessage(data);
+                    } catch (e) {
+                        // Handle as plain text message (legacy support)
+                        if (message.includes('FINAL:') || message.includes('PARTIAL:')) {
+                            addToLog(`🎯 ${message}`, 'transcription');
+                        } else {
+                            addToLog(`📨 ${message}`, 'received');
+                        }
+                    }
+                };
+                
+                websocket.onclose = function(event) {
+                    updateStatus('🔴 WebSocket connection closed', 'error');
+                    addToLog('❌ WebSocket connection closed', 'system');
+                    
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    document.getElementById('transcriptionBtn').disabled = true;
+                    document.getElementById('recordBtn').disabled = true;
+                    document.getElementById('sendBtn').disabled = true;
+                    
+                    if (connectionTimer) {
+                        clearInterval(connectionTimer);
+                    }
+                    
+                    if (isRecording || isTranscribing) {
+                        stopAll();
+                    }
+                };
+                
+                websocket.onerror = function(error) {
+                    updateStatus('❌ WebSocket connection error', 'error');
+                    addToLog(`❌ WebSocket error: ${error}`, 'system');
+                };
+                
+            } catch (error) {
+                updateStatus('❌ Failed to connect', 'error');
+                addToLog(`❌ Connection error: ${error.message}`, 'system');
+            }
+        }
+        
+        function disconnectWebSocket() {
+            if (websocket) {
+                stopAll();
+                websocket.close();
+                websocket = null;
+            }
+        }
+        
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                addToLog('❌ WebSocket not connected', 'error');
+                return;
+            }
+            
+            if (!message) {
+                addToLog('❌ Please enter a message', 'error');
+                return;
+            }
+            
+            try {
+                websocket.send(message);
+                addToLog(`📤 Sent: ${message}`, 'sent');
+                messageInput.value = '';
+            } catch (error) {
+                addToLog(`❌ Failed to send: ${error.message}`, 'error');
+            }
+        }
+        
+        async function toggleTranscription() {
+            if (!isTranscribing) {
+                await startTranscription();
+            } else {
+                stopTranscription();
+            }
+        }
+        
+        async function startTranscription() {
+            try {
+                // Send start command first
+                websocket.send('start_transcription');
+                addToLog('🎯 Starting live transcription...', 'sent');
+                
+                // Get audio stream with proper constraints for PCM
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                
+                // Create AudioContext for proper PCM conversion
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+                
+                const source = audioContext.createMediaStreamSource(stream);
+                
+                // Create ScriptProcessor for real-time audio processing
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                processor.onaudioprocess = function(event) {
+                    if (isTranscribing && websocket && websocket.readyState === WebSocket.OPEN) {
+                        const inputBuffer = event.inputBuffer;
+                        const inputData = inputBuffer.getChannelData(0);
+                        
+                        // Convert Float32 to Int16 PCM
+                        const pcm16 = new Int16Array(inputData.length);
+                        for (let i = 0; i < inputData.length; i++) {
+                            pcm16[i] = Math.max(-32768, Math.min(32767, Math.floor(inputData[i] * 32768)));
+                        }
+                        
+                        // Send as binary data
+                        websocket.send(pcm16.buffer);
+                        audioChunksSent++;
+                        
+                        if (audioChunksSent % 50 === 0) {
+                            updateStats();
+                        }
+                    }
+                };
+                
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                isTranscribing = true;
+                document.getElementById('transcriptionBtn').textContent = '⏹️ Stop Transcription';
+                document.getElementById('transcriptionBtn').className = 'button active';
+                addToLog('🎙️ Live transcription started - speak now!', 'system');
+                
+            } catch (error) {
+                addToLog(`❌ Failed to start transcription: ${error.message}`, 'error');
+            }
+        }
+        
+        function stopTranscription() {
+            if (isTranscribing) {
+                websocket.send('stop_transcription');
+                addToLog('⏹️ Stopping transcription...', 'sent');
+                
+                if (processor) {
+                    processor.disconnect();
+                    processor = null;
+                }
+                
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                }
+                
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                
+                isTranscribing = false;
+                document.getElementById('transcriptionBtn').textContent = '🎯 Start Live Transcription';
+                document.getElementById('transcriptionBtn').className = 'button';
+                addToLog('⏹️ Transcription stopped', 'system');
+            }
+        }
+        
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+        
+        async function startRecording() {
+            try {
+                websocket.send('start_recording');
+                addToLog('🔴 Starting recording...', 'sent');
+                
+                isRecording = true;
+                document.getElementById('recordBtn').textContent = '⏹️ Stop Recording';
+                document.getElementById('recordBtn').className = 'button active';
+                
+            } catch (error) {
+                addToLog(`❌ Failed to start recording: ${error.message}`, 'error');
+            }
+        }
+        
+        function stopRecording() {
+            if (isRecording) {
+                websocket.send('stop_recording');
+                addToLog('⏹️ Stopping recording...', 'sent');
+                
+                isRecording = false;
+                document.getElementById('recordBtn').textContent = '🎙️ Start Recording';
+                document.getElementById('recordBtn').className = 'button';
+            }
+        }
+        
+        function stopAll() {
+            if (isTranscribing) {
+                stopTranscription();
+            }
+            if (isRecording) {
+                stopRecording();
+            }
+        }
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && document.activeElement.id === 'messageInput') {
+                sendMessage();
+            }
+            if (e.key === ' ' && e.ctrlKey && !isTranscribing) {
+                e.preventDefault();
+                startTranscription();
+            }
+            if (e.key === 'Escape' && isTranscribing) {
+                e.preventDefault();
+                stopTranscription();
+            }
+        });
+        
+        // Initialize stats
+        updateStats();
+        
+        addToLog('🚀 FIXED Real-Time Transcription Interface Ready!', 'system');
+        addToLog('💡 Tip: Use Ctrl+Space to start transcription, Escape to stop', 'system');
+    </script>
+</body>
+</html>

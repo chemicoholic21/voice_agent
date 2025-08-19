@@ -172,6 +172,11 @@ async def serve_index():
     """Serve the main HTML page"""
     return FileResponse(f"{config.static_dir}/index.html")
 
+@app.get("/test-ws")
+async def serve_websocket_test():
+    """Serve the WebSocket test page for real-time transcription"""
+    return FileResponse("static/websocket_test.html")
+
 
 @app.post("/agent/chat/{session_id}", response_model=ChatResponse)
 @measure_execution_time
@@ -440,12 +445,27 @@ async def health_check():
 # WebSocket connection manager
 # Import WebSocket classes first
 from fastapi import WebSocket, WebSocketDisconnect
+import time
+import asyncio
+import assemblyai as aai
+from assemblyai.streaming.v3 import StreamingClient, StreamingClientOptions, StreamingParameters, StreamingEvents, TurnEvent, BeginEvent, TerminationEvent
+from assemblyai.streaming.v3.models import Encoding
+aai.settings.api_key = config.assemblyai_api_key
+import threading
+from queue import Queue
+import io
 
 class ConnectionManager:
-    """Manages WebSocket connections for real-time communication"""
+    """Manages WebSocket connections for real-time communication and streaming transcription"""
     
     def __init__(self):
         self.active_connections: list[WebSocket] = []
+        self.audio_sessions: dict = {}  # Track audio streaming sessions
+        self.transcription_sessions: dict = {}  # Track real-time transcription sessions
+        
+        # Initialize AssemblyAI for streaming
+        aai.settings.api_key = config.assemblyai_api_key
+        logger.info("ConnectionManager initialized with AssemblyAI streaming support")
     
     async def connect(self, websocket: WebSocket):
         """Accept and store new WebSocket connection"""
@@ -457,6 +477,15 @@ class ConnectionManager:
         """Remove WebSocket connection"""
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
+        
+        # Clean up any sessions for this websocket
+        session_id = self._get_session_id_for_websocket(websocket)
+        if session_id:
+            if session_id in self.audio_sessions:
+                self._close_audio_session(session_id)
+            if session_id in self.transcription_sessions:
+                self._close_transcription_session(session_id)
+                
         logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
     
     async def send_personal_message(self, message: str, websocket):
@@ -466,6 +495,188 @@ class ConnectionManager:
         except Exception as e:
             logger.error(f"Error sending WebSocket message: {e}")
             self.disconnect(websocket)
+    
+    def create_audio_session(self, session_id: str) -> str:
+        """Create new audio streaming session"""
+        timestamp = int(time.time())
+        filename = f"stream_audio_{session_id}_{timestamp}.wav"
+        filepath = Path(config.uploads_dir) / filename
+        
+        self.audio_sessions[session_id] = {
+            'filepath': filepath,
+            'file_handle': None,
+            'chunks_received': 0,
+            'total_bytes': 0,
+            'start_time': timestamp
+        }
+        
+        logger.info(f"Created audio session: {session_id} -> {filename}")
+        return str(filepath)
+    
+    async def save_audio_chunk(self, session_id: str, audio_data: bytes):
+        """Save audio chunk to file for the session"""
+        if session_id not in self.audio_sessions:
+            raise ValueError(f"Audio session {session_id} not found")
+        
+        session = self.audio_sessions[session_id]
+        
+        # Open file if not already open
+        if session['file_handle'] is None:
+            session['file_handle'] = open(session['filepath'], 'wb')
+        
+        # Write audio data
+        session['file_handle'].write(audio_data)
+        session['chunks_received'] += 1
+        session['total_bytes'] += len(audio_data)
+        
+        logger.info(f"Session {session_id}: Saved chunk {session['chunks_received']} ({len(audio_data)} bytes)")
+    
+    def create_transcription_session(self, session_id: str, websocket: WebSocket):
+        """Create new real-time transcription session with AssemblyAI Universal Streaming v3"""
+        try:
+            # Event handlers for universal streaming v3
+            def on_begin(client, event: BeginEvent):
+                logger.info(f"🎙️ Universal Streaming session started: {event.id}")
+                import threading
+                threading.Thread(target=self._send_message_sync, args=(
+                    f"🎙️ Real-time transcription started! Session: {event.id[:8]}...",
+                    websocket
+                )).start()
+            
+            def on_turn(client, event: TurnEvent):
+                if event.transcript:
+                    # Log and send transcription result
+                    if event.end_of_turn:
+                        logger.info(f"🎯 FINAL TRANSCRIPT: '{event.transcript}'")
+                        print(f"\n🎯 REAL-TIME TRANSCRIPTION: '{event.transcript}'\n")  # Print to console
+                        import threading
+                        threading.Thread(target=self._send_message_sync, args=(
+                            f"📝 FINAL: {event.transcript}",
+                            websocket
+                        )).start()
+                    else:
+                        logger.info(f"⏳ partial: '{event.transcript}'")
+                        import threading
+                        threading.Thread(target=self._send_message_sync, args=(
+                            f"📝 PARTIAL: {event.transcript}",
+                            websocket
+                        )).start()
+            
+            def on_error(client, error):
+                logger.error(f"❌ Transcription error: {str(error)}")
+                import threading
+                threading.Thread(target=self._send_message_sync, args=(
+                    f"❌ Transcription error: {str(error)}",
+                    websocket
+                )).start()
+            
+            def on_terminated(client, event: TerminationEvent):
+                logger.info("🔚 Transcription session terminated")
+                import threading
+                threading.Thread(target=self._send_message_sync, args=(
+                    "🔚 Real-time transcription ended",
+                    websocket
+                )).start()
+            
+            # Create universal streaming client v3
+            client = StreamingClient(
+                StreamingClientOptions(
+                    api_key=config.assemblyai_api_key,
+                    api_host="streaming.assemblyai.com"
+                )
+            )
+            
+            # Set up event handlers
+            client.on(StreamingEvents.Begin, on_begin)
+            client.on(StreamingEvents.Turn, on_turn) 
+            client.on(StreamingEvents.Error, on_error)
+            client.on(StreamingEvents.Termination, on_terminated)
+            
+            # Connect with streaming parameters
+            client.connect(
+                StreamingParameters(
+                    sample_rate=16000,
+                    format_turns=True,  # Enable text formatting
+                    encoding=Encoding.pcm_s16le  # 16-bit PCM
+                )
+            )
+            
+            # Store transcription session
+            self.transcription_sessions[session_id] = {
+                'client': client,
+                'websocket': websocket,
+                'is_connected': True,
+                'start_time': int(time.time()),
+                'total_audio_sent': 0
+            }
+            
+            logger.info(f"✅ Created universal streaming session: {session_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to create transcription session: {str(e)}")
+            return False
+    
+    def _send_message_sync(self, message: str, websocket: WebSocket):
+        """Helper method to send message synchronously from thread"""
+        try:
+            # Create new event loop for this thread
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.send_personal_message(message, websocket))
+            loop.close()
+        except Exception as e:
+            logger.error(f"Error sending sync message: {str(e)}")
+    
+    async def send_audio_for_transcription(self, session_id: str, audio_data: bytes):
+        """Send audio data to AssemblyAI for real-time transcription"""
+        if session_id not in self.transcription_sessions:
+            raise ValueError(f"Transcription session {session_id} not found")
+        
+        session = self.transcription_sessions[session_id]
+        
+        if session['is_connected'] and session['client']:
+            try:
+                # Send audio data to AssemblyAI streaming service
+                session['client'].stream(audio_data)
+                session['total_audio_sent'] += len(audio_data)
+                
+                # Log every 100 chunks to avoid spam
+                if session['total_audio_sent'] % (len(audio_data) * 100) == 0:
+                    logger.info(f"📡 Sent {session['total_audio_sent']} bytes for transcription")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error sending audio for transcription: {str(e)}")
+                raise
+    
+    def _close_audio_session(self, session_id: str):
+        """Close and finalize audio session"""
+        if session_id in self.audio_sessions:
+            session = self.audio_sessions[session_id]
+            if session['file_handle']:
+                session['file_handle'].close()
+            
+            logger.info(f"Closed audio session {session_id}: {session['chunks_received']} chunks, {session['total_bytes']} total bytes")
+            del self.audio_sessions[session_id]
+    
+    def _close_transcription_session(self, session_id: str):
+        """Close real-time transcription session"""
+        if session_id in self.transcription_sessions:
+            session = self.transcription_sessions[session_id]
+            
+            if session['client'] and session['is_connected']:
+                try:
+                    session['client'].disconnect(terminate=True)
+                    logger.info(f"🔚 Closed transcription session {session_id}")
+                except Exception as e:
+                    logger.error(f"Error closing transcription session: {str(e)}")
+            
+            del self.transcription_sessions[session_id]
+    
+    def _get_session_id_for_websocket(self, websocket: WebSocket) -> str:
+        """Get session ID for a websocket (simplified - using websocket object hash)"""
+        return str(hash(websocket))
 
 # Create connection manager instance
 manager = ConnectionManager()
@@ -474,29 +685,149 @@ manager = ConnectionManager()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
-    WebSocket endpoint for real-time communication
+    WebSocket endpoint for real-time audio streaming and transcription
     
     This endpoint allows clients to:
-    - Send text messages and receive echo responses
-    - Test WebSocket connectivity
+    - Send text messages for control (start_recording, stop_recording, start_transcription, stop_transcription)
+    - Stream binary audio data in real-time
+    - Receive status updates, confirmations, and live transcriptions
     """
     await manager.connect(websocket)
+    session_id = manager._get_session_id_for_websocket(websocket)
     
     try:
         # Send welcome message
         await manager.send_personal_message(
-            "🎙️ Connected to Voice Agent WebSocket! Send any message and I'll echo it back.", 
+            "🎙️ Connected to Voice Agent! Commands: start_recording, stop_recording, start_transcription, stop_transcription", 
             websocket
         )
         
+        audio_session_active = False
+        transcription_session_active = False
+        
         while True:
-            # Wait for message from client
-            data = await websocket.receive_text()
-            logger.info(f"WebSocket received: {data}")
-            
-            # Echo the message back
-            response = f"Echo: {data}"
-            await manager.send_personal_message(response, websocket)
+            try:
+                # Try to receive text message first
+                data = await websocket.receive_text()
+                logger.info(f"WebSocket received text: {data}")
+                
+                if data == "start_recording":
+                    if not audio_session_active:
+                        filepath = manager.create_audio_session(session_id)
+                        audio_session_active = True
+                        await manager.send_personal_message(
+                            f"🔴 Recording started! Audio will be saved to: {Path(filepath).name}", 
+                            websocket
+                        )
+                    else:
+                        await manager.send_personal_message(
+                            "⚠️ Recording already in progress", 
+                            websocket
+                        )
+                
+                elif data == "stop_recording":
+                    if audio_session_active:
+                        manager._close_audio_session(session_id)
+                        audio_session_active = False
+                        await manager.send_personal_message(
+                            "⏹️ Recording stopped and saved successfully!", 
+                            websocket
+                        )
+                    else:
+                        await manager.send_personal_message(
+                            "⚠️ No active recording to stop", 
+                            websocket
+                        )
+                
+                elif data == "start_transcription":
+                    logger.info(f"🎯 Start transcription request - Current state: {transcription_session_active}")
+                    if not transcription_session_active:
+                        success = manager.create_transcription_session(session_id, websocket)
+                        logger.info(f"🎯 Transcription session creation result: {success}")
+                        if success:
+                            transcription_session_active = True
+                            logger.info(f"🎯 Transcription session now active for {session_id}")
+                            await manager.send_personal_message(
+                                "🎯 Real-time transcription started! Send audio data to see live transcriptions.", 
+                                websocket
+                            )
+                        else:
+                            await manager.send_personal_message(
+                                "❌ Failed to start transcription session. Check your AssemblyAI API key.", 
+                                websocket
+                            )
+                    else:
+                        await manager.send_personal_message(
+                            "⚠️ Transcription already in progress", 
+                            websocket
+                        )
+                
+                elif data == "stop_transcription":
+                    logger.info(f"🛑 Stop transcription request - Current state: {transcription_session_active}")
+                    if transcription_session_active:
+                        manager._close_transcription_session(session_id)
+                        transcription_session_active = False
+                        logger.info(f"🛑 Transcription session stopped for {session_id}")
+                        await manager.send_personal_message(
+                            "⏹️ Real-time transcription stopped!", 
+                            websocket
+                        )
+                    else:
+                        logger.info(f"🛑 No transcription session to stop for {session_id}")
+                        await manager.send_personal_message(
+                            "⚠️ No active transcription to stop", 
+                            websocket
+                        )
+                
+                else:
+                    # Echo other text messages
+                    response = f"Echo: {data}"
+                    await manager.send_personal_message(response, websocket)
+                    
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                # Try to receive binary data (audio chunks)
+                try:
+                    audio_data = await websocket.receive_bytes()
+                    logger.info(f"WebSocket received audio chunk: {len(audio_data)} bytes")
+                    
+                    # Save to file if recording session is active
+                    if audio_session_active:
+                        await manager.save_audio_chunk(session_id, audio_data)
+                        
+                        # Send acknowledgment for every 10th chunk to avoid spam
+                        session_info = manager.audio_sessions.get(session_id, {})
+                        chunk_count = session_info.get('chunks_received', 0)
+                        
+                        if chunk_count % 10 == 0:
+                            await manager.send_personal_message(
+                                f"📡 Received {chunk_count} audio chunks ({session_info.get('total_bytes', 0)} bytes)", 
+                                websocket
+                            )
+                    
+                    # Send to real-time transcription if session is active
+                    if transcription_session_active:
+                        try:
+                            logger.info(f"📡 Sending {len(audio_data)} bytes to transcription for session {session_id}")
+                            await manager.send_audio_for_transcription(session_id, audio_data)
+                        except Exception as transcription_error:
+                            logger.error(f"Transcription error: {str(transcription_error)}")
+                            await manager.send_personal_message(
+                                f"⚠️ Transcription error: {str(transcription_error)}", 
+                                websocket
+                            )
+                    
+                    # If neither session is active, warn user
+                    if not audio_session_active and not transcription_session_active:
+                        await manager.send_personal_message(
+                            "⚠️ Audio received but no active sessions. Use 'start_recording' or 'start_transcription'.", 
+                            websocket
+                        )
+                        
+                except Exception as inner_e:
+                    logger.error(f"WebSocket error processing data: {str(inner_e)}")
+                    break
                     
     except WebSocketDisconnect:
         manager.disconnect(websocket)
